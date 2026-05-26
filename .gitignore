@@ -1,0 +1,42 @@
+# Xcode
+#
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace/
+
+# Swift Package Manager
+#
+.build/
+Packages/
+Package.resolved
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+
+# macOS
+#
+.DS_Store
+*.swp
+*~
+.AppleDouble
+.LSOverride
+
+# Files that might appear in the root of a project
+.DocumentRevisions-V100
+.LSOverride
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Mobile
+*.moved-aside
+*.app
+*.xccheckout
+*.xcscmblueprint
+
+# LLM Models & Large Assets
+# (Typically you don't want to commit multi-GB model weights)
+*.bin
+*.gguf
+*.tflite
