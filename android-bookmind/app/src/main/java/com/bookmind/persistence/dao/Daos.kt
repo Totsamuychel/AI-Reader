@@ -12,6 +12,8 @@ import com.bookmind.persistence.entity.EventEntity
 import com.bookmind.persistence.entity.FactEntity
 import com.bookmind.persistence.entity.ReadingProgressEntity
 import com.bookmind.persistence.entity.RecapEntity
+import com.bookmind.persistence.entity.UserQuoteEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookDao {
@@ -133,6 +135,18 @@ interface RecapDao {
         """
     )
     suspend fun latestRecap(bookId: String, maxChapterIndex: Int): RecapEntity?
+}
+
+@Dao
+interface UserQuoteDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(quote: UserQuoteEntity)
+
+    @Query("SELECT * FROM user_quotes WHERE bookId = :bookId ORDER BY createdAt DESC")
+    fun observeForBook(bookId: String): Flow<List<UserQuoteEntity>>
+
+    @Query("DELETE FROM user_quotes WHERE id = :quoteId")
+    suspend fun delete(quoteId: String)
 }
 
 @Dao

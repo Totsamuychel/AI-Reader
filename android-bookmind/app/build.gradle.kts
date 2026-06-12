@@ -87,6 +87,8 @@ dependencies {
 
     // Tests
     testImplementation("junit:junit:4.13.2")
+    // Real org.json for JVM unit tests (the SDK stub throws "not mocked").
+    testImplementation("org.json:json:20240303")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.room:room-testing:2.6.1")

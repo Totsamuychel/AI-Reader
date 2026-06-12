@@ -122,6 +122,20 @@ data class FactEntity(
 @Entity(tableName = "facts_fts")
 data class FactFts(val text: String)
 
+@Entity(
+    tableName = "user_quotes",
+    indices = [Index(value = ["bookId", "createdAt"])]
+)
+data class UserQuoteEntity(
+    @PrimaryKey val id: String,
+    val bookId: String,
+    val chapterId: String?,
+    val chapterIndex: Int,
+    val text: String,
+    val note: String?,
+    val createdAt: Long
+)
+
 @Entity(tableName = "relations")
 data class RelationEntity(
     @PrimaryKey val id: String,

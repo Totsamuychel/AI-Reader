@@ -12,6 +12,7 @@ import com.bookmind.core.model.Event
 import com.bookmind.core.model.Fact
 import com.bookmind.core.model.ReadingPosition
 import com.bookmind.core.model.Recap
+import com.bookmind.core.model.UserQuote
 import com.bookmind.persistence.entity.BookEntity
 import com.bookmind.persistence.entity.ChapterEntity
 import com.bookmind.persistence.entity.CharacterEntity
@@ -20,6 +21,7 @@ import com.bookmind.persistence.entity.EventEntity
 import com.bookmind.persistence.entity.FactEntity
 import com.bookmind.persistence.entity.ReadingProgressEntity
 import com.bookmind.persistence.entity.RecapEntity
+import com.bookmind.persistence.entity.UserQuoteEntity
 import org.json.JSONArray
 
 // = iOS `Records` toDomain()/init(domain:) conversions.
@@ -115,6 +117,25 @@ fun RecapEntity.toDomain() = Recap(
     chapterIndex = chapterIndex,
     recapText = recapText,
     style = style
+)
+
+fun UserQuote.toEntity() = UserQuoteEntity(
+    id = id,
+    bookId = bookID.raw,
+    chapterId = chapterID?.raw,
+    chapterIndex = chapterIndex,
+    text = text,
+    note = note,
+    createdAt = createdAt
+)
+fun UserQuoteEntity.toDomain() = UserQuote(
+    id = id,
+    bookID = BookID(bookId),
+    chapterID = chapterId?.let { ChapterID(it) },
+    chapterIndex = chapterIndex,
+    text = text,
+    note = note,
+    createdAt = createdAt
 )
 
 fun Fact.toEntity() = FactEntity(

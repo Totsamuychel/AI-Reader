@@ -24,7 +24,8 @@ data class AssistantUiState(
     val inputText: String = "",
     val isGenerating: Boolean = false,
     val streamingText: String = "",
-    val mode: AnswerMode = AnswerMode.SAFE
+    val mode: AnswerMode = AnswerMode.SAFE,
+    val webEnabled: Boolean = false
 )
 
 @HiltViewModel
@@ -53,6 +54,21 @@ class AssistantViewModel @Inject constructor(
         answerService.mode = mode
         _uiState.update { it.copy(mode = mode) }
     }
+
+    fun setWebEnabled(enabled: Boolean) {
+        answerService.webEnabled = enabled
+        _uiState.update { it.copy(webEnabled = enabled) }
+    }
+
+    /** Pre-fills the input, e.g. when the reader asks about a highlighted passage. */
+    fun askAboutPassage(passage: String) {
+        val excerpt = passage.trim().take(400)
+        if (excerpt.isEmpty()) return
+        _uiState.update { it.copy(inputText = "Explain this passage: \"$excerpt\"") }
+    }
+
+    fun updateChapter(currentChapterIndex: Int) =
+        _uiState.update { it.copy(currentChapter = currentChapterIndex) }
 
     fun sendMessage() {
         val state = _uiState.value

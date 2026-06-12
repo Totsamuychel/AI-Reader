@@ -15,8 +15,10 @@ import com.bookmind.memory.RoomMemoryWriter
 import com.bookmind.persistence.AppDatabase
 import com.bookmind.persistence.BookStoring
 import com.bookmind.persistence.ReadingProgressStoring
+import com.bookmind.persistence.QuoteStoring
 import com.bookmind.persistence.RoomBookStore
 import com.bookmind.persistence.RoomProgressStore
+import com.bookmind.persistence.RoomQuoteStore
 import com.bookmind.persistence.dao.BookDao
 import com.bookmind.persistence.dao.CharacterDao
 import com.bookmind.persistence.dao.ChunkDao
@@ -24,7 +26,9 @@ import com.bookmind.persistence.dao.EventDao
 import com.bookmind.persistence.dao.FactDao
 import com.bookmind.persistence.dao.ProgressDao
 import com.bookmind.persistence.dao.RecapDao
+import com.bookmind.persistence.dao.UserQuoteDao
 import com.bookmind.retrieval.ChunkSearchService
+import com.bookmind.retrieval.DuckDuckGoWikipediaSearch
 import com.bookmind.retrieval.CharacterLookupService
 import com.bookmind.retrieval.ContextRetrieving
 import com.bookmind.retrieval.EventLookupService
@@ -38,6 +42,7 @@ import com.bookmind.retrieval.RoomChunkSearch
 import com.bookmind.retrieval.RoomEventLookup
 import com.bookmind.retrieval.RoomFactSearch
 import com.bookmind.retrieval.RoomRecapLookup
+import com.bookmind.retrieval.WebSearching
 import com.bookmind.safety.HeuristicSpoilerScanner
 import com.bookmind.safety.ResponseSpoilerScanning
 import com.bookmind.safety.SpoilerBoundaryResolver
@@ -70,6 +75,7 @@ object DatabaseModule {
     @Provides fun characterDao(db: AppDatabase): CharacterDao = db.characterDao()
     @Provides fun recapDao(db: AppDatabase): RecapDao = db.recapDao()
     @Provides fun eventDao(db: AppDatabase): EventDao = db.eventDao()
+    @Provides fun userQuoteDao(db: AppDatabase): UserQuoteDao = db.userQuoteDao()
 }
 
 /** Chooses the LLM bridge: real MediaPipe when the model is downloaded, else a stub. */
@@ -95,6 +101,8 @@ abstract class BindingsModule {
     @Binds abstract fun bookStore(impl: RoomBookStore): BookStoring
     @Binds abstract fun progressStore(impl: RoomProgressStore): ReadingProgressStoring
     @Binds abstract fun memoryWriter(impl: RoomMemoryWriter): MemoryWriting
+    @Binds abstract fun quoteStore(impl: RoomQuoteStore): QuoteStoring
+    @Binds abstract fun webSearch(impl: DuckDuckGoWikipediaSearch): WebSearching
 
     @Binds abstract fun characterLookup(impl: RoomCharacterLookup): CharacterLookupService
     @Binds abstract fun factSearch(impl: RoomFactSearch): FactSearchService

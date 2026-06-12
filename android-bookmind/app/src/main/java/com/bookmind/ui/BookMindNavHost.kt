@@ -34,12 +34,9 @@ fun BookMindNavHost() {
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { entry ->
             val bookId = entry.arguments?.getString("bookId").orEmpty()
-            ReaderScreen(
-                bookId = bookId,
-                onOpenAssistant = { id, chapterIndex ->
-                    navController.navigate(Routes.assistant(id, chapterIndex))
-                }
-            )
+            // The assistant now lives in a side panel inside the reader;
+            // the standalone route below remains for direct navigation.
+            ReaderScreen(bookId = bookId)
         }
         composable(
             Routes.ASSISTANT,

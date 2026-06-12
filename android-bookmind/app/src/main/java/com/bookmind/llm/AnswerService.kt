@@ -4,11 +4,13 @@ import com.bookmind.core.model.BookID
 import com.bookmind.persistence.BookStoring
 import com.bookmind.retrieval.ContextRetrieving
 import com.bookmind.retrieval.PromptContextAssembling
+import com.bookmind.retrieval.WebSearching
 import com.bookmind.safety.AnswerMode
 import com.bookmind.safety.ResponseSpoilerScanning
 import com.bookmind.safety.SpoilerBoundaryResolving
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,15 +26,22 @@ class AnswerService @Inject constructor(
     private val assembler: PromptContextAssembling,
     private val boundary: SpoilerBoundaryResolving,
     private val scanner: ResponseSpoilerScanning,
-    private val bookStore: BookStoring
+    private val bookStore: BookStoring,
+    private val webSearch: WebSearching
 ) : AnswerProviding {
 
     private val modeRef = AtomicReference(AnswerMode.SAFE)
+    private val webEnabledRef = AtomicBoolean(false)
 
     /** UI-controlled spoiler mode. */
     var mode: AnswerMode
         get() = modeRef.get()
         set(value) = modeRef.set(value)
+
+    /** UI-controlled internet tool. Off by default: web results can spoil. */
+    var webEnabled: Boolean
+        get() = webEnabledRef.get()
+        set(value) = webEnabledRef.set(value)
 
     override suspend fun answer(
         question: String,
@@ -43,9 +52,21 @@ class AnswerService @Inject constructor(
         val boundaryIndex = boundary.allowedChapterIndex(mode, currentChapterIndex)
 
         val context = retrieval.context(question, bookID, currentChapterIndex, boundaryIndex)
-        val userPrompt = assembler.makePromptContext(context, question, currentChapterIndex, boundaryIndex)
+        var userPrompt = assembler.makePromptContext(context, question, currentChapterIndex, boundaryIndex)
 
-        val title = bookStore.book(bookID)?.title ?: "this book"
+        val book = bookStore.book(bookID)
+        val title = book?.title ?: "this book"
+
+        if (webEnabled) {
+            val snippet = runCatching {
+                webSearch.search(listOfNotNull(title, book?.author, question).joinToString(" "))
+            }.getOrNull()
+            if (snippet != null) {
+                userPrompt += "\n\n## Web context (external background; NEVER use it to reveal " +
+                    "plot beyond the allowed horizon)\nSource: ${snippet.sourceUrl}\n${snippet.text}\n"
+            }
+        }
+
         val system = SystemPrompts.bookAssistantPrompt(title, currentChapterIndex, boundaryIndex, mode)
 
         val firstAnswer = llm.generate(system, userPrompt, maxTokens = 512)
