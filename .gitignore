@@ -40,3 +40,6 @@ Package.resolved
 *.bin
 *.gguf
 *.tflite
+
+# Claude Code local session files
+.claude/
