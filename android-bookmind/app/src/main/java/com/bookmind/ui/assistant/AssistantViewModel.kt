@@ -67,6 +67,13 @@ class AssistantViewModel @Inject constructor(
         _uiState.update { it.copy(inputText = "Explain this passage: \"$excerpt\"") }
     }
 
+    /** Quick-action chips: drop in a ready-made prompt and send it immediately. */
+    fun quickAsk(prompt: String) {
+        if (prompt.isBlank() || _uiState.value.isGenerating) return
+        _uiState.update { it.copy(inputText = prompt) }
+        sendMessage()
+    }
+
     fun updateChapter(currentChapterIndex: Int) =
         _uiState.update { it.copy(currentChapter = currentChapterIndex) }
 

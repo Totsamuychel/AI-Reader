@@ -10,8 +10,10 @@ import com.bookmind.core.model.Chunk
 import com.bookmind.core.model.ChunkID
 import com.bookmind.core.model.Event
 import com.bookmind.core.model.Fact
+import com.bookmind.core.model.HighlightColor
 import com.bookmind.core.model.ReadingPosition
 import com.bookmind.core.model.Recap
+import com.bookmind.core.model.Shelf
 import com.bookmind.core.model.UserQuote
 import com.bookmind.persistence.entity.BookEntity
 import com.bookmind.persistence.entity.ChapterEntity
@@ -21,20 +23,25 @@ import com.bookmind.persistence.entity.EventEntity
 import com.bookmind.persistence.entity.FactEntity
 import com.bookmind.persistence.entity.ReadingProgressEntity
 import com.bookmind.persistence.entity.RecapEntity
+import com.bookmind.persistence.entity.ShelfEntity
 import com.bookmind.persistence.entity.UserQuoteEntity
 import org.json.JSONArray
 
 // = iOS `Records` toDomain()/init(domain:) conversions.
 
-fun Book.toEntity() = BookEntity(id.raw, title, author, format.raw, fileUri, addedAt)
+fun Book.toEntity() = BookEntity(id.raw, title, author, format.raw, fileUri, addedAt, shelfId)
 fun BookEntity.toDomain() = Book(
     id = BookID(id),
     title = title,
     author = author,
     format = BookFormat.fromRaw(format),
     fileUri = fileUri,
-    addedAt = addedAt
+    addedAt = addedAt,
+    shelfId = shelfId
 )
+
+fun Shelf.toEntity() = ShelfEntity(id, name, colorRgb, sortOrder, createdAt)
+fun ShelfEntity.toDomain() = Shelf(id, name, colorRgb, sortOrder, createdAt)
 
 fun Chapter.toEntity() = ChapterEntity(id.raw, bookID.raw, index, title, contentRef)
 fun ChapterEntity.toDomain() = Chapter(ChapterID(id), BookID(bookId), idx, title, contentRef)
@@ -126,6 +133,7 @@ fun UserQuote.toEntity() = UserQuoteEntity(
     chapterIndex = chapterIndex,
     text = text,
     note = note,
+    color = color.name,
     createdAt = createdAt
 )
 fun UserQuoteEntity.toDomain() = UserQuote(
@@ -135,6 +143,7 @@ fun UserQuoteEntity.toDomain() = UserQuote(
     chapterIndex = chapterIndex,
     text = text,
     note = note,
+    color = HighlightColor.fromName(color),
     createdAt = createdAt
 )
 

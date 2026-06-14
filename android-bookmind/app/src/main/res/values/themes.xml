@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.BookMind" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Android 12+ system splash; falls back gracefully on older versions. -->
+    <style name="Theme.BookMind.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.BookMind</item>
+    </style>
 </resources>

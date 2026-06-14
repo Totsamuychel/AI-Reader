@@ -47,11 +47,7 @@ class BookImportService @Inject constructor(
     }
 
     private fun formatFor(name: String): BookFormat =
-        when (name.substringAfterLast('.', "").lowercase()) {
-            "epub" -> BookFormat.EPUB
-            "txt" -> BookFormat.TXT
-            else -> BookFormat.TXT
-        }
+        BookFormat.fromExtension(name.substringAfterLast('.', ""))
 
     private fun queryDisplayName(uri: Uri): String? {
         if (uri.scheme == "file") return uri.lastPathSegment

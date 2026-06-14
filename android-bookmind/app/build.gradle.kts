@@ -62,6 +62,18 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
+    // Settings / theme persistence
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Encrypted storage for AI API keys
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Animated splash screen
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // Book covers extracted from EPUBs
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // Room + FTS4 (= GRDB + SQLite FTS5 on iOS)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
@@ -70,8 +82,11 @@ dependencies {
     // MediaPipe Gemma on-device LLM (= MediaPipe iOS)
     implementation("com.google.mediapipe:tasks-genai:0.10.14")
 
-    // EPUB / HTML
+    // EPUB / FB2 / HTML
     implementation("org.jsoup:jsoup:1.17.2")
+
+    // PDF text extraction
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     // DI
     implementation("com.google.dagger:hilt-android:2.51.1")

@@ -25,7 +25,9 @@ import com.bookmind.persistence.dao.ChunkDao
 import com.bookmind.persistence.dao.EventDao
 import com.bookmind.persistence.dao.FactDao
 import com.bookmind.persistence.dao.ProgressDao
+import com.bookmind.persistence.dao.ReadingSessionDao
 import com.bookmind.persistence.dao.RecapDao
+import com.bookmind.persistence.dao.ShelfDao
 import com.bookmind.persistence.dao.UserQuoteDao
 import com.bookmind.retrieval.ChunkSearchService
 import com.bookmind.retrieval.DuckDuckGoWikipediaSearch
@@ -53,8 +55,28 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import javax.inject.Provider
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+/** Application-lifetime scope for work that must outlive a ViewModel (e.g. saving
+ *  a reading session when the reader screen is torn down). */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope
+
+@Module
+@InstallIn(SingletonComponent::class)
+object CoroutineModule {
+    @Provides
+    @Singleton
+    @ApplicationScope
+    fun provideApplicationScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+}
 
 /** Provides the Room database + DAOs. = iOS `DatabaseManager` wiring. */
 @Module
@@ -76,6 +98,8 @@ object DatabaseModule {
     @Provides fun recapDao(db: AppDatabase): RecapDao = db.recapDao()
     @Provides fun eventDao(db: AppDatabase): EventDao = db.eventDao()
     @Provides fun userQuoteDao(db: AppDatabase): UserQuoteDao = db.userQuoteDao()
+    @Provides fun shelfDao(db: AppDatabase): ShelfDao = db.shelfDao()
+    @Provides fun readingSessionDao(db: AppDatabase): ReadingSessionDao = db.readingSessionDao()
 }
 
 /** Chooses the LLM bridge: real MediaPipe when the model is downloaded, else a stub. */

@@ -43,3 +43,6 @@ Package.resolved
 
 # Claude Code local session files
 .claude/
+
+# JetBrains IDE
+.idea/

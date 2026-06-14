@@ -11,7 +11,9 @@ import com.bookmind.persistence.entity.ChunkEntity
 import com.bookmind.persistence.entity.EventEntity
 import com.bookmind.persistence.entity.FactEntity
 import com.bookmind.persistence.entity.ReadingProgressEntity
+import com.bookmind.persistence.entity.ReadingSessionEntity
 import com.bookmind.persistence.entity.RecapEntity
+import com.bookmind.persistence.entity.ShelfEntity
 import com.bookmind.persistence.entity.UserQuoteEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -31,6 +33,45 @@ interface BookDao {
 
     @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY idx ASC")
     suspend fun chapters(bookId: String): List<ChapterEntity>
+
+    @Query("UPDATE books SET shelfId = :shelfId WHERE id = :bookId")
+    suspend fun setShelf(bookId: String, shelfId: String?)
+
+    @Query("UPDATE books SET shelfId = NULL WHERE shelfId = :shelfId")
+    suspend fun clearShelf(shelfId: String)
+
+    @Query("DELETE FROM books WHERE id = :bookId")
+    suspend fun deleteBook(bookId: String)
+
+    @Query("DELETE FROM chapters WHERE bookId = :bookId")
+    suspend fun deleteChapters(bookId: String)
+}
+
+@Dao
+interface ShelfDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(shelf: ShelfEntity)
+
+    @Query("SELECT * FROM shelves ORDER BY sortOrder ASC, createdAt ASC")
+    fun observeAll(): Flow<List<ShelfEntity>>
+
+    @Query("DELETE FROM shelves WHERE id = :shelfId")
+    suspend fun delete(shelfId: String)
+}
+
+@Dao
+interface ReadingSessionDao {
+    @Insert
+    suspend fun insert(session: ReadingSessionEntity)
+
+    @Query("SELECT * FROM reading_sessions WHERE startedAt >= :since ORDER BY startedAt ASC")
+    suspend fun since(since: Long): List<ReadingSessionEntity>
+
+    @Query("SELECT * FROM reading_sessions ORDER BY startedAt ASC")
+    suspend fun all(): List<ReadingSessionEntity>
+
+    @Query("DELETE FROM reading_sessions WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 }
 
 @Dao
@@ -38,8 +79,14 @@ interface ProgressDao {
     @Query("SELECT * FROM reading_progress WHERE bookId = :bookId")
     suspend fun load(bookId: String): ReadingProgressEntity?
 
+    @Query("SELECT * FROM reading_progress")
+    suspend fun all(): List<ReadingProgressEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(progress: ReadingProgressEntity)
+
+    @Query("DELETE FROM reading_progress WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 }
 
 @Dao
@@ -60,6 +107,9 @@ interface ChunkDao {
         """
     )
     suspend fun searchSafe(query: String, bookId: String, maxChapterIndex: Int): List<ChunkEntity>
+
+    @Query("DELETE FROM chunks WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 }
 
 @Dao
@@ -80,6 +130,9 @@ interface FactDao {
         """
     )
     suspend fun searchSafe(query: String, bookId: String, maxChapterIndex: Int): List<FactEntity>
+
+    @Query("DELETE FROM facts WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 }
 
 @Dao
@@ -89,6 +142,9 @@ interface CharacterDao {
 
     @Query("SELECT * FROM characters WHERE bookId = :bookId")
     suspend fun loadForBook(bookId: String): List<CharacterEntity>
+
+    @Query("DELETE FROM characters WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 
     @Query(
         """
@@ -135,6 +191,9 @@ interface RecapDao {
         """
     )
     suspend fun latestRecap(bookId: String, maxChapterIndex: Int): RecapEntity?
+
+    @Query("DELETE FROM recaps WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 }
 
 @Dao
@@ -145,8 +204,14 @@ interface UserQuoteDao {
     @Query("SELECT * FROM user_quotes WHERE bookId = :bookId ORDER BY createdAt DESC")
     fun observeForBook(bookId: String): Flow<List<UserQuoteEntity>>
 
+    @Query("SELECT * FROM user_quotes ORDER BY createdAt DESC")
+    suspend fun all(): List<UserQuoteEntity>
+
     @Query("DELETE FROM user_quotes WHERE id = :quoteId")
     suspend fun delete(quoteId: String)
+
+    @Query("DELETE FROM user_quotes WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 }
 
 @Dao
@@ -163,4 +228,7 @@ interface EventDao {
         """
     )
     suspend fun recentEvents(bookId: String, maxChapterIndex: Int, limit: Int): List<EventEntity>
+
+    @Query("DELETE FROM events WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
 }

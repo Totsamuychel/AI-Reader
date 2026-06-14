@@ -14,7 +14,29 @@ data class BookEntity(
     val author: String?,
     val format: String,
     val fileUri: String,
-    val addedAt: Long
+    val addedAt: Long,
+    val shelfId: String? = null
+)
+
+@Entity(tableName = "shelves")
+data class ShelfEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val colorRgb: Long,
+    val sortOrder: Int,
+    val createdAt: Long
+)
+
+@Entity(
+    tableName = "reading_sessions",
+    indices = [Index(value = ["startedAt"])]
+)
+data class ReadingSessionEntity(
+    @PrimaryKey(autoGenerate = true) val rowid: Long = 0,
+    val bookId: String,
+    val startedAt: Long,
+    val durationMs: Long,
+    val words: Int
 )
 
 @Entity(
@@ -133,6 +155,7 @@ data class UserQuoteEntity(
     val chapterIndex: Int,
     val text: String,
     val note: String?,
+    val color: String = "YELLOW",
     val createdAt: Long
 )
 

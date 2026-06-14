@@ -6,11 +6,15 @@ import com.bookmind.core.ReaderSession
 import com.bookmind.core.model.Book
 import com.bookmind.core.model.BookID
 import com.bookmind.core.model.Chapter
+import com.bookmind.core.model.HighlightColor
 import com.bookmind.core.model.UserQuote
 import com.bookmind.core.parser.BookParserFactory
+import com.bookmind.di.ApplicationScope
 import com.bookmind.persistence.BookStoring
 import com.bookmind.persistence.QuoteStoring
+import com.bookmind.persistence.ReadingSessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +41,9 @@ class ReaderViewModel @Inject constructor(
     private val bookStore: BookStoring,
     private val readerSession: ReaderSession,
     private val parserFactory: BookParserFactory,
-    private val quoteStore: QuoteStoring
+    private val quoteStore: QuoteStoring,
+    private val sessionStore: ReadingSessionStore,
+    @ApplicationScope private val appScope: CoroutineScope
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReaderUiState())
@@ -45,7 +51,15 @@ class ReaderViewModel @Inject constructor(
 
     private var quotesJob: Job? = null
 
+    // Reading-session metrics, flushed in onCleared via the application scope.
+    private var sessionBookId: BookID? = null
+    private var sessionStartedAt: Long = 0L
+    private var sessionWords: Int = 0
+
     fun open(bookId: String) {
+        sessionBookId = BookID(bookId)
+        sessionStartedAt = System.currentTimeMillis()
+        sessionWords = 0
         viewModelScope.launch {
             val book = bookStore.book(BookID(bookId)) ?: run {
                 _uiState.update { it.copy(isLoading = false) }
@@ -75,7 +89,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     /** Saves a highlighted passage as a quote at the current position. */
-    fun saveQuote(text: String) {
+    fun saveQuote(text: String, color: HighlightColor = HighlightColor.YELLOW) {
         val state = _uiState.value
         val book = state.book ?: return
         val trimmed = text.trim()
@@ -88,6 +102,7 @@ class ReaderViewModel @Inject constructor(
                     chapterID = state.currentChapter?.id,
                     chapterIndex = state.currentChapterIndex,
                     text = trimmed,
+                    color = color,
                     createdAt = System.currentTimeMillis()
                 )
             )
@@ -125,6 +140,16 @@ class ReaderViewModel @Inject constructor(
     private suspend fun loadChapterText(book: Book, chapter: Chapter) {
         val text = runCatching { parserFactory.parser(book.format).rawText(chapter, book) }
             .getOrDefault("")
+        sessionWords += text.split(Regex("\\s+")).count { it.isNotBlank() }
         _uiState.update { it.copy(chapterText = text) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        val bookId = sessionBookId ?: return
+        val duration = System.currentTimeMillis() - sessionStartedAt
+        val words = sessionWords
+        // Survive the ViewModel being cleared by writing on the application scope.
+        appScope.launch { sessionStore.record(bookId, sessionStartedAt, duration, words) }
     }
 }
