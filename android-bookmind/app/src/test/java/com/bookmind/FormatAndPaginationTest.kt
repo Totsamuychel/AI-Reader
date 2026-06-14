@@ -77,15 +77,27 @@ class NormalizeTest {
     }
 
     @Test
-    fun `hard-wrapped lines are joined within a paragraph`() {
-        val raw = "This is a sentence\nbroken across\nthree lines."
-        assertEquals("This is a sentence broken across three lines.", normalizeChapterText(raw))
+    fun `hard-wrapped lines are joined within a blank-line-separated paragraph`() {
+        val raw = "This is a sentence\nbroken across\nthree lines.\n\nSecond paragraph."
+        assertEquals(
+            "This is a sentence broken across three lines.\nSecond paragraph.",
+            normalizeChapterText(raw)
+        )
     }
 
     @Test
-    fun `paragraph breaks are preserved as a single blank line`() {
+    fun `each line is its own paragraph when there are no blank lines`() {
+        val raw = "First paragraph.\nSecond paragraph.\nThird paragraph."
+        assertEquals(
+            "First paragraph.\nSecond paragraph.\nThird paragraph.",
+            normalizeChapterText(raw)
+        )
+    }
+
+    @Test
+    fun `runs of blank lines collapse to a single separator`() {
         val raw = "First.\n\n\n\nSecond."
-        assertEquals("First.\n\nSecond.", normalizeChapterText(raw))
+        assertEquals("First.\nSecond.", normalizeChapterText(raw))
     }
 
     @Test

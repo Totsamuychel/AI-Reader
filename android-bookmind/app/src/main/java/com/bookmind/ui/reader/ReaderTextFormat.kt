@@ -2,46 +2,54 @@ package com.bookmind.ui.reader
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextIndent
+import androidx.compose.ui.unit.em
 
 /**
- * Cleans raw chapter text extracted by the parsers into well-formed reading prose.
+ * Cleans raw chapter text extracted by the parsers into well-formed reading prose,
+ * detecting paragraph structure across the two conventions books use:
  *
- * Parsers emit paragraphs separated by blank lines, but the bytes around them are
- * inconsistent: stray single newlines mid-paragraph (hard-wrapped source), runs of
- * spaces, and leading/trailing whitespace. We collapse intra-paragraph whitespace to
- * single spaces while preserving the blank line between paragraphs, so the reader
- * renders clean blocks with consistent spacing across EPUB / FB2 / PDF / TXT.
+ *  - **Blank-line separated** (most EPUB/FB2/PDF, and TXT with empty lines): blank
+ *    lines delimit paragraphs and any single newline inside a paragraph is a
+ *    hard-wrap that we unwrap into a space.
+ *  - **One-line-per-paragraph** (common plain TXT with no blank lines): every
+ *    non-empty line is its own paragraph.
  *
- * The result keeps `\n\n` as the only paragraph delimiter, which is exactly what
- * [paginate] splits on.
+ * Paragraphs are emitted separated by a single `\n` so the reader can render them
+ * with a book-style first-line indent (see [ReaderVisualTransformation]); [paginate]
+ * splits on the same delimiter.
  */
 fun normalizeChapterText(raw: String): String {
     if (raw.isBlank()) return ""
-    return raw
-        .replace("\r\n", "\n")
-        .replace(' ', ' ') // non-breaking spaces → regular, so collapsing works
-        .split(Regex("\\n\\s*\\n"))
+    val text = raw.replace("\r\n", "\n").replace(' ', ' ') // nbsp → space
+    val hasBlankLineSeparators = Regex("\\n[ \\t]*\\n").containsMatchIn(text)
+
+    val paragraphs = if (hasBlankLineSeparators) {
+        text.split(Regex("\\n[ \\t]*\\n"))
+            .map { it.replace(Regex("[ \\t]*\\n[ \\t]*"), " ") } // unwrap hard-wraps
+    } else {
+        text.split('\n') // each line is a paragraph
+    }
+
+    return paragraphs
         .asSequence()
-        .map { paragraph ->
-            paragraph
-                .trim()
-                .replace(Regex("[ \\t]*\\n[ \\t]*"), " ") // unwrap hard-wrapped lines
-                .replace(Regex("[ \\t]{2,}"), " ")        // collapse repeated spaces
-        }
+        .map { it.replace(Regex("[ \\t]{2,}"), " ").trim() } // collapse repeated spaces
         .filter { it.isNotBlank() }
-        .joinToString("\n\n")
+        .joinToString("\n")
 }
 
 /**
- * Styles a few lightweight markup conventions inside the read-only reader text
- * field without changing character offsets (so passage selection keeps working):
+ * Renders the read-only reader text with book-like typography without changing
+ * character offsets (so passage selection keeps working):
  *
+ *  - every paragraph gets a first-line indent (the classic "red line")
  *  - lines beginning with `>` render italic and tinted (block quotes)
  *  - inline `` `code` `` renders in a monospace family
  *
@@ -57,6 +65,13 @@ class ReaderVisualTransformation(
         if (source.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
 
         val builder = AnnotatedString.Builder(source)
+
+        // Book-style first-line indent applied to every paragraph (split on '\n').
+        builder.addStyle(
+            ParagraphStyle(textIndent = TextIndent(firstLine = FIRST_LINE_INDENT)),
+            0,
+            source.length
+        )
 
         // Quote lines: leading whitespace then '>'.
         var lineStart = 0
@@ -89,5 +104,7 @@ class ReaderVisualTransformation(
 
     private companion object {
         val INLINE_CODE = Regex("`[^`\\n]+`")
+        // Relative to font size, so the indent scales with the reader's text size.
+        val FIRST_LINE_INDENT = 1.6.em
     }
 }

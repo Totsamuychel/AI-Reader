@@ -181,7 +181,9 @@ private fun Modifier.curlShading(
  */
 internal fun paginate(text: String, charsPerPage: Int): List<String> {
     if (text.isBlank()) return listOf("")
-    val paragraphs = text.split(Regex("\n{2,}"))
+    // Paragraphs are single-newline separated (see normalizeChapterText); tolerate
+    // any run of blank lines too.
+    val paragraphs = text.split(Regex("\n+"))
     val pages = mutableListOf<String>()
     val current = StringBuilder()
 
@@ -191,8 +193,8 @@ internal fun paginate(text: String, charsPerPage: Int): List<String> {
     }
 
     for (para in paragraphs) {
-        if (current.length + para.length + 2 <= charsPerPage) {
-            if (current.isNotEmpty()) current.append("\n\n")
+        if (current.length + para.length + 1 <= charsPerPage) {
+            if (current.isNotEmpty()) current.append("\n")
             current.append(para)
         } else if (para.length <= charsPerPage) {
             flush()

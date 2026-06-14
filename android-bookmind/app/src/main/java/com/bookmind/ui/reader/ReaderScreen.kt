@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QuestionAnswer
-import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -73,6 +72,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -164,11 +164,18 @@ fun ReaderScreen(
                 TopAppBar(
                     title = {
                         Column {
-                            Text(uiState.book?.title ?: "Reader", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                uiState.book?.title ?: "Reader",
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             uiState.currentChapter?.let {
                                 Text(
                                     it.title ?: "Chapter ${it.index + 1}",
-                                    style = MaterialTheme.typography.bodySmall
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -179,11 +186,6 @@ fun ReaderScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = {
-                            if (tts.isSpeaking) tts.pause() else tts.start(uiState.chapterText)
-                        }) {
-                            Icon(Icons.Default.RecordVoiceOver, contentDescription = "Read aloud")
-                        }
                         IconButton(onClick = { quotesOpen = true }) {
                             Icon(Icons.Default.FormatQuote, contentDescription = "Quotes")
                         }
