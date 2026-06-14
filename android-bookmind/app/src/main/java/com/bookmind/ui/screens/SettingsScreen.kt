@@ -69,6 +69,7 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val syncMessage by viewModel.syncMessage.collectAsStateWithLifecycle()
     val apiKey by viewModel.apiKey.collectAsStateWithLifecycle()
+    val modelStatus by viewModel.modelStatus.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -236,6 +237,11 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                OnDeviceModelRow(
+                    status = modelStatus,
+                    onDownload = viewModel::downloadModel
+                )
             }
 
             // 5.4 Library / backup
@@ -305,6 +311,41 @@ private fun FlowChips(content: @Composable () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) { content() }
+}
+
+@Composable
+private fun OnDeviceModelRow(
+    status: com.bookmind.ui.settings.ModelStatus,
+    onDownload: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("On-device model (Gemma)", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    when {
+                        status.present -> "Установлена · работает офлайн"
+                        status.downloading -> status.message ?: "Загрузка…"
+                        status.message != null -> status.message!!
+                        else -> "Не загружена · ~1.5 ГБ"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (status.present) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            } else {
+                Button(onClick = onDownload, enabled = !status.downloading) { Text("Загрузить") }
+            }
+        }
+        if (status.downloading) {
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { status.fraction.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            )
+        }
+    }
 }
 
 @Composable

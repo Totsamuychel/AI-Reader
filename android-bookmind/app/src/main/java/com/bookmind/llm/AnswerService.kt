@@ -33,6 +33,12 @@ class AnswerService @Inject constructor(
     private val modeRef = AtomicReference(AnswerMode.SAFE)
     private val webEnabledRef = AtomicBoolean(false)
 
+    private companion object {
+        // ~1 token ≈ 4 chars; cap the external web snippet at roughly 375 tokens
+        // so the retrieved book context + question stay within the 2K window.
+        const val MAX_WEB_CONTEXT_CHARS = 1500
+    }
+
     /** UI-controlled spoiler mode. */
     var mode: AnswerMode
         get() = modeRef.get()
@@ -62,8 +68,11 @@ class AnswerService @Inject constructor(
                 webSearch.search(listOfNotNull(title, book?.author, question).joinToString(" "))
             }.getOrNull()
             if (snippet != null) {
+                // Keep the external snippet within a token budget so the prompt
+                // doesn't overflow the on-device model's context window.
+                val trimmed = snippet.text.take(MAX_WEB_CONTEXT_CHARS)
                 userPrompt += "\n\n## Web context (external background; NEVER use it to reveal " +
-                    "plot beyond the allowed horizon)\nSource: ${snippet.sourceUrl}\n${snippet.text}\n"
+                    "plot beyond the allowed horizon)\nSource: ${snippet.sourceUrl}\n$trimmed\n"
             }
         }
 

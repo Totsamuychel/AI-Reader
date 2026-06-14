@@ -9,6 +9,7 @@ import com.bookmind.settings.AppSettings
 import com.bookmind.settings.PageAnimation
 import com.bookmind.settings.ReaderBackground
 import com.bookmind.settings.ScrollDirection
+import com.bookmind.llm.ModelDownloadService
 import com.bookmind.settings.SecureKeyStore
 import com.bookmind.settings.SettingsStore
 import com.bookmind.sync.SyncRepository
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,11 +29,20 @@ import javax.inject.Inject
  * Shared across the app: exposes the persisted [AppSettings] and the setters
  * for the settings screen / theme selector. The reader/library also read it.
  */
+/** On-device Gemma model availability + download progress for the settings UI. */
+data class ModelStatus(
+    val present: Boolean = false,
+    val downloading: Boolean = false,
+    val fraction: Float = 0f,
+    val message: String? = null
+)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val store: SettingsStore,
     private val secureKeyStore: SecureKeyStore,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    private val modelDownload: ModelDownloadService
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = store.settings.stateIn(
@@ -39,6 +50,30 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.Eagerly,
         initialValue = AppSettings()
     )
+
+    private val _modelStatus = MutableStateFlow(ModelStatus(present = modelDownload.isModelPresent))
+    val modelStatus: StateFlow<ModelStatus> = _modelStatus.asStateFlow()
+
+    /** Downloads the on-device model, streaming progress into [modelStatus]. */
+    fun downloadModel() {
+        if (_modelStatus.value.downloading) return
+        _modelStatus.update { it.copy(downloading = true, message = "Загрузка…") }
+        viewModelScope.launch {
+            modelDownload.downloadModel().collect { progress ->
+                when (progress) {
+                    is ModelDownloadService.DownloadProgress.Downloading -> _modelStatus.update {
+                        it.copy(downloading = true, fraction = progress.fraction, message = null)
+                    }
+                    is ModelDownloadService.DownloadProgress.Completed -> _modelStatus.update {
+                        it.copy(present = true, downloading = false, fraction = 1f, message = "Модель готова")
+                    }
+                    is ModelDownloadService.DownloadProgress.Failed -> _modelStatus.update {
+                        it.copy(downloading = false, message = "Ошибка: ${progress.message}")
+                    }
+                }
+            }
+        }
+    }
 
     private val _syncMessage = MutableStateFlow<String?>(null)
     val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
