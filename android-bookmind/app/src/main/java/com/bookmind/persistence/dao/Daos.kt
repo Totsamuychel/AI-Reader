@@ -70,6 +70,9 @@ interface ReadingSessionDao {
     @Query("SELECT * FROM reading_sessions ORDER BY startedAt ASC")
     suspend fun all(): List<ReadingSessionEntity>
 
+    @Query("SELECT * FROM reading_sessions WHERE bookId = :bookId ORDER BY startedAt ASC")
+    suspend fun forBook(bookId: String): List<ReadingSessionEntity>
+
     @Query("DELETE FROM reading_sessions WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
 }

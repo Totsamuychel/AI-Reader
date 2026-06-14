@@ -11,6 +11,7 @@ import androidx.navigation.navArgument
 import com.bookmind.ui.assistant.AssistantScreen
 import com.bookmind.ui.library.LibraryScreen
 import com.bookmind.ui.reader.ReaderScreen
+import com.bookmind.ui.screens.BookStatsScreen
 import com.bookmind.ui.screens.OnboardingScreen
 import com.bookmind.ui.screens.SettingsScreen
 import com.bookmind.ui.screens.StatsScreen
@@ -23,9 +24,11 @@ object Routes {
     const val ASSISTANT = "assistant/{bookId}/{chapterIndex}"
     const val SETTINGS = "settings"
     const val STATS = "stats"
+    const val STATS_BOOK = "stats/{bookId}"
 
     fun reader(bookId: String) = "reader/$bookId"
     fun assistant(bookId: String, chapterIndex: Int) = "assistant/$bookId/$chapterIndex"
+    fun stats(bookId: String) = "stats/$bookId"
 }
 
 @Composable
@@ -58,7 +61,11 @@ fun BookMindNavHost(settingsViewModel: SettingsViewModel) {
             val bookId = entry.arguments?.getString("bookId").orEmpty()
             // The assistant now lives in a side panel inside the reader;
             // the standalone route below remains for direct navigation.
-            ReaderScreen(bookId = bookId)
+            ReaderScreen(
+                bookId = bookId,
+                onBack = { navController.popBackStack() },
+                onOpenStats = { navController.navigate(Routes.stats(bookId)) }
+            )
         }
         composable(
             Routes.ASSISTANT,
@@ -77,6 +84,15 @@ fun BookMindNavHost(settingsViewModel: SettingsViewModel) {
         }
         composable(Routes.STATS) {
             StatsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            Routes.STATS_BOOK,
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { entry ->
+            BookStatsScreen(
+                bookId = entry.arguments?.getString("bookId").orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

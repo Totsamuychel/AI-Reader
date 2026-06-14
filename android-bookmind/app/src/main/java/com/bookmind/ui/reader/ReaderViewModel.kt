@@ -138,8 +138,10 @@ class ReaderViewModel @Inject constructor(
     }
 
     private suspend fun loadChapterText(book: Book, chapter: Chapter) {
-        val text = runCatching { parserFactory.parser(book.format).rawText(chapter, book) }
+        val raw = runCatching { parserFactory.parser(book.format).rawText(chapter, book) }
             .getOrDefault("")
+        // Clean up paragraph spacing / hard-wrapped lines for consistent rendering.
+        val text = normalizeChapterText(raw)
         sessionWords += text.split(Regex("\\s+")).count { it.isNotBlank() }
         _uiState.update { it.copy(chapterText = text) }
     }

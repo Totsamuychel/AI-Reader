@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookmind.settings.AppSettings
@@ -45,6 +46,7 @@ import kotlin.math.abs
 fun PagedReader(
     text: String,
     settings: AppSettings,
+    contentColor: Color,
     onSelectionChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -53,7 +55,7 @@ fun PagedReader(
         fontFamily = settings.readerFont.fontFamily,
         fontSize = settings.fontSizeSp.sp,
         lineHeight = (settings.fontSizeSp * settings.lineSpacing).sp,
-        color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
+        color = contentColor
     )
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -72,12 +74,16 @@ fun PagedReader(
             snapshotFlow { pagerState.currentPage }.collect { onSelectionChange("") }
         }
 
+        val quoteColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
+        val transformation = remember(quoteColor) { ReaderVisualTransformation(quoteColor) }
+
         val pageContent: @Composable (Int) -> Unit = { index ->
             PageSurface(
                 pageText = pages.getOrElse(index) { "" },
                 textStyle = textStyle,
                 isCurrent = index == pagerState.currentPage,
                 onSelectionChange = onSelectionChange,
+                transformation = transformation,
                 modifier = Modifier
                     .pageTransform(settings.pageAnimation, pagerState, index)
                     .curlShading(settings.pageAnimation, pagerState, index)
@@ -98,6 +104,7 @@ private fun PageSurface(
     textStyle: TextStyle,
     isCurrent: Boolean,
     onSelectionChange: (String) -> Unit,
+    transformation: VisualTransformation,
     modifier: Modifier = Modifier
 ) {
     var fieldValue by remember(pageText) { mutableStateOf(TextFieldValue(pageText)) }
@@ -106,6 +113,7 @@ private fun PageSurface(
             value = fieldValue,
             onValueChange = { fieldValue = it },
             readOnly = true,
+            visualTransformation = transformation,
             textStyle = textStyle,
             modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
         )

@@ -7,6 +7,7 @@ import com.bookmind.settings.AiModel
 import com.bookmind.settings.AnswerLanguage
 import com.bookmind.settings.AppSettings
 import com.bookmind.settings.PageAnimation
+import com.bookmind.settings.ReaderBackground
 import com.bookmind.settings.ScrollDirection
 import com.bookmind.settings.SecureKeyStore
 import com.bookmind.settings.SettingsStore
@@ -88,6 +89,8 @@ class SettingsViewModel @Inject constructor(
     fun setLineSpacing(value: Float) = launch { store.setLineSpacing(value) }
     fun setPageAnimation(anim: PageAnimation) = launch { store.setPageAnimation(anim) }
     fun setScrollDirection(dir: ScrollDirection) = launch { store.setScrollDirection(dir) }
+    fun setReaderBackground(bg: ReaderBackground) = launch { store.setReaderBackground(bg) }
+    fun setWarmth(value: Float) = launch { store.setWarmth(value) }
     fun setAutoAnalyze(enabled: Boolean) = launch { store.setAutoAnalyze(enabled) }
     fun setKeepHistory(enabled: Boolean) = launch { store.setKeepHistory(enabled) }
     fun setReaderWeight(weight: Float) = launch { store.setReaderWeight(weight) }

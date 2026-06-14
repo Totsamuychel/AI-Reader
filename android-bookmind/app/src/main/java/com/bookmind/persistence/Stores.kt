@@ -140,6 +140,7 @@ class ReadingSessionStore @Inject constructor(
 
     suspend fun since(since: Long) = sessionDao.since(since)
     suspend fun all() = sessionDao.all()
+    suspend fun forBook(bookID: BookID) = sessionDao.forBook(bookID.raw)
 
     companion object { private const val MIN_SESSION_MS = 3_000L }
 }

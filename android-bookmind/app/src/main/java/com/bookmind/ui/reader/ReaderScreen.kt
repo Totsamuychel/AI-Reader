@@ -1,8 +1,11 @@
 package com.bookmind.ui.reader
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,16 +30,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -53,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
@@ -81,6 +91,8 @@ import com.bookmind.ui.settings.SettingsViewModel
 @Composable
 fun ReaderScreen(
     bookId: String,
+    onBack: () -> Unit = {},
+    onOpenStats: () -> Unit = {},
     viewModel: ReaderViewModel = hiltViewModel(),
     assistantViewModel: AssistantViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel()
@@ -91,6 +103,10 @@ fun ReaderScreen(
 
     var chatOpen by remember { mutableStateOf(false) }
     var quotesOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var settingsOpen by remember { mutableStateOf(false) }
+    // Hoisted so the chapter scroll position can drive the chrome auto-hide.
+    val scrollState = rememberScrollState()
     val tts = rememberTtsController()
     // The highlighted passage, reported by whichever reader mode is active. It
     // powers "save quote" / "ask AI".
@@ -117,14 +133,34 @@ fun ReaderScreen(
         if (settings.autoAnalyzeSelection && selectedText.isNotBlank()) chatOpen = true
     }
 
+    // System back: dismiss the assistant panel first, otherwise leave the reader.
+    BackHandler {
+        when {
+            chatOpen -> chatOpen = false
+            else -> onBack()
+        }
+    }
+
     val chapterCount = uiState.chapters.size
     val chapterProgress = if (chapterCount <= 1) 0f
     else (uiState.currentChapterIndex + 1).toFloat() / chapterCount
 
+    // In continuous mode the chrome slides away once the reader scrolls into the
+    // chapter, giving an immersive full-screen page; it returns near the top.
+    val immersiveScroll = settings.scrollDirection == ScrollDirection.VERTICAL
+    val chromeVisible by remember(immersiveScroll) {
+        derivedStateOf { !immersiveScroll || scrollState.value < 60 }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Column {
+            AnimatedVisibility(
+                visible = chromeVisible,
+                enter = slideInVertically { -it },
+                exit = slideOutVertically { -it }
+            ) {
+              Column {
                 TopAppBar(
                     title = {
                         Column {
@@ -135,6 +171,11 @@ fun ReaderScreen(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                         }
                     },
                     actions = {
@@ -149,6 +190,26 @@ fun ReaderScreen(
                         IconButton(onClick = { chatOpen = !chatOpen }) {
                             Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Assistant")
                         }
+                        Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Меню")
+                            }
+                            DropdownMenu(
+                                expanded = menuOpen,
+                                onDismissRequest = { menuOpen = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Оформление") },
+                                    leadingIcon = { Icon(Icons.Default.TextFields, contentDescription = null) },
+                                    onClick = { menuOpen = false; settingsOpen = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Статистика") },
+                                    leadingIcon = { Icon(Icons.Default.BarChart, contentDescription = null) },
+                                    onClick = { menuOpen = false; onOpenStats() }
+                                )
+                            }
+                        }
                     }
                 )
                 // Chapter progress bar (Medium-style thin line).
@@ -156,22 +217,29 @@ fun ReaderScreen(
                     progress = { chapterProgress },
                     modifier = Modifier.fillMaxWidth().height(2.dp)
                 )
+              }
             }
         },
         bottomBar = {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+            AnimatedVisibility(
+                visible = chromeVisible,
+                enter = slideInVertically { it },
+                exit = slideOutVertically { it }
             ) {
-                IconButton(onClick = viewModel::previousChapter) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous")
-                }
-                Text(
-                    "${uiState.currentChapterIndex + 1} / $chapterCount",
-                    modifier = Modifier.align(Alignment.CenterVertically)
-                )
-                IconButton(onClick = viewModel::nextChapter) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = viewModel::previousChapter) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous")
+                    }
+                    Text(
+                        "${uiState.currentChapterIndex + 1} / $chapterCount",
+                        modifier = Modifier.align(Alignment.CenterVertically)
+                    )
+                    IconButton(onClick = viewModel::nextChapter) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next")
+                    }
                 }
             }
         }
@@ -185,6 +253,7 @@ fun ReaderScreen(
                     chapterText = uiState.chapterText,
                     selectedText = selectedText,
                     settings = settings,
+                    scrollState = scrollState,
                     onSelectionChange = { selectedText = it },
                     onSaveQuote = { color -> viewModel.saveQuote(selectedText, color) },
                     onAskAi = {
@@ -268,6 +337,21 @@ fun ReaderScreen(
             )
         }
     }
+
+    if (settingsOpen) {
+        ModalBottomSheet(onDismissRequest = { settingsOpen = false }) {
+            ReaderSettingsSheet(
+                settings = settings,
+                onFontChange = settingsViewModel::setFont,
+                onFontSizeChange = settingsViewModel::setFontSize,
+                onLineSpacingChange = settingsViewModel::setLineSpacing,
+                onBackgroundChange = settingsViewModel::setReaderBackground,
+                onAnimationChange = settingsViewModel::setPageAnimation,
+                onScrollDirectionChange = settingsViewModel::setScrollDirection,
+                onWarmthChange = settingsViewModel::setWarmth
+            )
+        }
+    }
 }
 
 @Composable
@@ -276,12 +360,31 @@ private fun ReaderBody(
     chapterText: String,
     selectedText: String,
     settings: AppSettings,
+    scrollState: androidx.compose.foundation.ScrollState,
     onSelectionChange: (String) -> Unit,
     onSaveQuote: (HighlightColor) -> Unit,
     onAskAi: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxHeight()) {
+    // Page background / text color preset (or fall back to the app theme).
+    val bgColor = settings.readerBackground.bgArgb?.let { Color(it) }
+        ?: MaterialTheme.colorScheme.background
+    val fgColor = settings.readerBackground.fgArgb?.let { Color(it) }
+        ?: MaterialTheme.colorScheme.onBackground
+    val warmth = settings.warmth.coerceIn(0f, 1f)
+
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(bgColor)
+            // Warm "night" tint painted over the page content.
+            .drawWithContent {
+                drawContent()
+                if (warmth > 0f) {
+                    drawRect(Color(1f, 0.78f, 0.43f, warmth * 0.45f))
+                }
+            }
+    ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 isLoading -> Column(
@@ -292,12 +395,13 @@ private fun ReaderBody(
 
                 // Continuous scrolling — the proven, selectable reading mode.
                 settings.scrollDirection == ScrollDirection.VERTICAL ->
-                    ContinuousReader(chapterText, settings, onSelectionChange)
+                    ContinuousReader(chapterText, settings, fgColor, scrollState, onSelectionChange)
 
                 // Page-flipping with the chosen turn animation.
                 else -> PagedReader(
                     text = chapterText,
                     settings = settings,
+                    contentColor = fgColor,
                     onSelectionChange = onSelectionChange
                 )
             }
@@ -313,6 +417,8 @@ private fun ReaderBody(
 private fun ContinuousReader(
     chapterText: String,
     settings: AppSettings,
+    contentColor: Color,
+    scrollState: androidx.compose.foundation.ScrollState,
     onSelectionChange: (String) -> Unit
 ) {
     var fieldValue by remember(chapterText) { mutableStateOf(TextFieldValue(chapterText)) }
@@ -321,21 +427,25 @@ private fun ContinuousReader(
     }
     LaunchedEffect(selected) { onSelectionChange(selected) }
 
+    val quoteColor = MaterialTheme.colorScheme.primary
+    val transformation = remember(quoteColor) { ReaderVisualTransformation(quoteColor) }
+
     BasicTextField(
         value = fieldValue,
         onValueChange = { fieldValue = it }, // readOnly rejects edits, keeps selection
         readOnly = true,
+        visualTransformation = transformation,
         textStyle = TextStyle(
             fontFamily = settings.readerFont.fontFamily,
             fontSize = settings.fontSizeSp.sp,
             lineHeight = settings.fontSizeSp.times(settings.lineSpacing).sp,
             letterSpacing = 0.em,
-            color = MaterialTheme.colorScheme.onBackground
+            color = contentColor
         ),
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 12.dp)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
     )
 }
 

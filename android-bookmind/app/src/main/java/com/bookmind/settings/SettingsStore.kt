@@ -34,6 +34,28 @@ enum class ScrollDirection { HORIZONTAL, VERTICAL;
     }
 }
 
+/**
+ * Reading surface background. SYSTEM follows the app theme; the rest pin a fixed
+ * page color (with a matching text color) regardless of the global theme, the way
+ * dedicated readers offer Sepia / paper-white / dark presets.
+ */
+enum class ReaderBackground(
+    val displayName: String,
+    val bgArgb: Long?,
+    val fgArgb: Long?
+) {
+    SYSTEM("Системный", null, null),
+    WHITE("Белый", 0xFFFFFFFF, 0xFF1A1A1A),
+    SEPIA("Бежевый", 0xFFF5ECD9, 0xFF40341E),
+    GRAY("Тёмно-серый", 0xFF2B2B2B, 0xFFE6E1D8),
+    BLACK("Чёрный", 0xFF000000, 0xFFC9C4BC);
+
+    companion object {
+        fun fromName(name: String?): ReaderBackground =
+            entries.firstOrNull { it.name == name } ?: SYSTEM
+    }
+}
+
 /** AI provider the assistant should target. Local Gemma is the only one wired to
  *  inference today; the rest persist credentials/config for future routing. */
 enum class AiModel(val displayName: String, val needsApiKey: Boolean, val needsUrl: Boolean) {
@@ -68,6 +90,9 @@ data class AppSettings(
     val lineSpacing: Float = 1.5f,
     val pageAnimation: PageAnimation = PageAnimation.SLIDE,
     val scrollDirection: ScrollDirection = ScrollDirection.VERTICAL,
+    val readerBackground: ReaderBackground = ReaderBackground.SYSTEM,
+    /** Warm "night" tint over the page, 0f (off) .. 1f (strongest). */
+    val warmth: Float = 0f,
     val autoAnalyzeSelection: Boolean = false,
     val keepChatHistory: Boolean = true,
     val aiModel: AiModel = AiModel.GEMMA_LOCAL,
@@ -93,6 +118,8 @@ class SettingsStore @Inject constructor(
         val lineSpacing = floatPreferencesKey("line_spacing")
         val pageAnim = stringPreferencesKey("page_animation")
         val scrollDir = stringPreferencesKey("scroll_direction")
+        val readerBackground = stringPreferencesKey("reader_background")
+        val warmth = floatPreferencesKey("warmth_level")
         val autoAnalyze = booleanPreferencesKey("auto_analyze")
         val keepHistory = booleanPreferencesKey("keep_history")
         val aiModel = stringPreferencesKey("ai_model")
@@ -112,6 +139,8 @@ class SettingsStore @Inject constructor(
             lineSpacing = p[Keys.lineSpacing] ?: 1.5f,
             pageAnimation = PageAnimation.fromName(p[Keys.pageAnim]),
             scrollDirection = ScrollDirection.fromName(p[Keys.scrollDir]),
+            readerBackground = ReaderBackground.fromName(p[Keys.readerBackground]),
+            warmth = p[Keys.warmth] ?: 0f,
             autoAnalyzeSelection = p[Keys.autoAnalyze] ?: false,
             keepChatHistory = p[Keys.keepHistory] ?: true,
             aiModel = AiModel.fromName(p[Keys.aiModel]),
@@ -130,6 +159,8 @@ class SettingsStore @Inject constructor(
     suspend fun setLineSpacing(value: Float) = edit { it[Keys.lineSpacing] = value }
     suspend fun setPageAnimation(anim: PageAnimation) = edit { it[Keys.pageAnim] = anim.name }
     suspend fun setScrollDirection(dir: ScrollDirection) = edit { it[Keys.scrollDir] = dir.name }
+    suspend fun setReaderBackground(bg: ReaderBackground) = edit { it[Keys.readerBackground] = bg.name }
+    suspend fun setWarmth(value: Float) = edit { it[Keys.warmth] = value }
     suspend fun setAutoAnalyze(enabled: Boolean) = edit { it[Keys.autoAnalyze] = enabled }
     suspend fun setKeepHistory(enabled: Boolean) = edit { it[Keys.keepHistory] = enabled }
     suspend fun setAiModel(model: AiModel) = edit { it[Keys.aiModel] = model.name }
