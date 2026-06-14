@@ -41,6 +41,9 @@ interface BookDao {
     @Query("UPDATE books SET coverUri = :coverUri WHERE id = :bookId")
     suspend fun setCover(bookId: String, coverUri: String?)
 
+    @Query("UPDATE books SET title = :title WHERE id = :bookId")
+    suspend fun setTitle(bookId: String, title: String)
+
     @Query("UPDATE books SET shelfId = NULL WHERE shelfId = :shelfId")
     suspend fun clearShelf(shelfId: String)
 

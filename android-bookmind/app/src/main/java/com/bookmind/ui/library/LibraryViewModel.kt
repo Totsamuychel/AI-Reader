@@ -146,6 +146,16 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /** Renames a book; blank titles are ignored. */
+    fun renameBook(bookId: BookID, title: String) {
+        val trimmed = title.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            bookStore.setTitle(bookId, trimmed)
+            refresh()
+        }
+    }
+
     /** Import → parse chapters → ingest into spoiler-safe memory. */
     fun importAndIngest(uri: Uri) {
         viewModelScope.launch {

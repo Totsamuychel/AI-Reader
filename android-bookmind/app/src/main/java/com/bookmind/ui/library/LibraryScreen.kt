@@ -24,7 +24,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
@@ -33,6 +35,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HideImage
 import androidx.compose.material.icons.filled.Settings
@@ -85,6 +88,7 @@ fun LibraryScreen(
     var searchOpen by remember { mutableStateOf(false) }
     var sortOpen by remember { mutableStateOf(false) }
     var contextBook by remember { mutableStateOf<Book?>(null) }
+    var renamingBook by remember { mutableStateOf<Book?>(null) }
     var showCreateShelf by remember { mutableStateOf(false) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -198,13 +202,31 @@ fun LibraryScreen(
                 contextBook = null
             },
             onChangeCover = { coverPicker.launch(arrayOf("image/*")) },
+            onPickPreset = { index ->
+                viewModel.updateCover(book.id, com.bookmind.ui.components.CoverPresets.id(index))
+            },
             onRemoveCover = {
                 viewModel.updateCover(book.id, null)
+                contextBook = null
+            },
+            onRename = {
+                renamingBook = book
                 contextBook = null
             },
             onDelete = {
                 viewModel.deleteBook(book.id)
                 contextBook = null
+            }
+        )
+    }
+
+    renamingBook?.let { book ->
+        RenameBookDialog(
+            initial = book.title,
+            onDismiss = { renamingBook = null },
+            onConfirm = { newTitle ->
+                viewModel.renameBook(book.id, newTitle)
+                renamingBook = null
             }
         )
     }
@@ -431,7 +453,9 @@ private fun BookContextSheet(
     onDismiss: () -> Unit,
     onMoveToShelf: (String?) -> Unit,
     onChangeCover: () -> Unit,
+    onPickPreset: (Int) -> Unit,
     onRemoveCover: () -> Unit,
+    onRename: () -> Unit,
     onDelete: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -442,6 +466,24 @@ private fun BookContextSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onRename)
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.DriveFileRenameOutline, contentDescription = null)
+                Spacer(Modifier.size(8.dp))
+                Text("Переименовать")
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Text("Обложка — пресеты", style = MaterialTheme.typography.labelLarge)
+            CoverPresetRow(book = book, onPickPreset = onPickPreset)
+
             Spacer(Modifier.height(12.dp))
             Text("Move to shelf", style = MaterialTheme.typography.labelLarge)
             ContextRow(label = "None (unfiled)", selected = book.shelfId == null) { onMoveToShelf(null) }
@@ -462,7 +504,7 @@ private fun BookContextSheet(
             ) {
                 Icon(Icons.Default.Edit, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
-                Text("Изменить обложку")
+                Text("Своё изображение обложки")
             }
             if (book.coverUri != null) {
                 Row(
@@ -511,6 +553,63 @@ private fun ContextRow(label: String, selected: Boolean, color: Color? = null, o
         )
         if (selected) Icon(Icons.Default.Check, contentDescription = "Current shelf")
     }
+}
+
+@Composable
+private fun CoverPresetRow(book: Book, onPickPreset: (Int) -> Unit) {
+    val selectedIndex = book.coverUri
+        ?.takeIf { it.startsWith(com.bookmind.ui.components.CoverPresets.PREFIX) }
+        ?.removePrefix(com.bookmind.ui.components.CoverPresets.PREFIX)
+        ?.toIntOrNull()
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        itemsIndexed(com.bookmind.ui.components.CoverPresets.palettes) { index, palette ->
+            Box(
+                modifier = Modifier
+                    .size(width = 38.dp, height = 56.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        androidx.compose.ui.graphics.Brush.linearGradient(
+                            listOf(palette.first, palette.second)
+                        )
+                    )
+                    .then(
+                        if (index == selectedIndex)
+                            Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                        else Modifier
+                    )
+                    .clickable { onPickPreset(index) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun RenameBookDialog(
+    initial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var name by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Переименовать книгу") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Название") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) { Text("Сохранить") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
 }
 
 @Composable

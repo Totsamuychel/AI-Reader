@@ -29,6 +29,7 @@ interface BookStoring {
     suspend fun chapters(bookID: BookID): List<Chapter>
     suspend fun book(bookID: BookID): Book?
     suspend fun setCover(bookID: BookID, coverUri: String?)
+    suspend fun setTitle(bookID: BookID, title: String)
 }
 
 /** = iOS `ReadingProgressStoring`. */
@@ -50,6 +51,8 @@ class RoomBookStore @Inject constructor(
     override suspend fun book(bookID: BookID): Book? = bookDao.book(bookID.raw)?.toDomain()
     override suspend fun setCover(bookID: BookID, coverUri: String?) =
         bookDao.setCover(bookID.raw, coverUri)
+    override suspend fun setTitle(bookID: BookID, title: String) =
+        bookDao.setTitle(bookID.raw, title)
 }
 
 /** Saved reader highlights. */
