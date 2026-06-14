@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +46,8 @@ fun PagedReader(
     text: String,
     settings: AppSettings,
     contentColor: Color,
+    pagerState: PagerState,
+    onPageCountChange: (Int) -> Unit,
     onSelectionChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -67,7 +68,9 @@ fun PagedReader(
         val charsPerPage = (charsPerLine * lines * 0.92f).toInt().coerceAtLeast(200)
 
         val pages = remember(text, charsPerPage) { paginate(text, charsPerPage) }
-        val pagerState = rememberPagerState(pageCount = { pages.size })
+
+        // Keep the hoisted pager's page count in sync with the pagination.
+        LaunchedEffect(pages.size) { onPageCountChange(pages.size) }
 
         // Clear the highlight whenever the page changes.
         LaunchedEffect(pagerState) {

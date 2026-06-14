@@ -29,8 +29,9 @@ enum class PageAnimation(val displayName: String) {
 
 enum class ScrollDirection { HORIZONTAL, VERTICAL;
     companion object {
+        // Default to paged (swipe) reading.
         fun fromName(name: String?): ScrollDirection =
-            entries.firstOrNull { it.name == name } ?: VERTICAL
+            entries.firstOrNull { it.name == name } ?: HORIZONTAL
     }
 }
 
@@ -89,7 +90,7 @@ data class AppSettings(
     val fontSizeSp: Float = 17f,
     val lineSpacing: Float = 1.5f,
     val pageAnimation: PageAnimation = PageAnimation.SLIDE,
-    val scrollDirection: ScrollDirection = ScrollDirection.VERTICAL,
+    val scrollDirection: ScrollDirection = ScrollDirection.HORIZONTAL,
     val readerBackground: ReaderBackground = ReaderBackground.SYSTEM,
     /** Warm "night" tint over the page, 0f (off) .. 1f (strongest). */
     val warmth: Float = 0f,

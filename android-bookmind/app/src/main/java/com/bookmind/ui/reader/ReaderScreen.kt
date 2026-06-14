@@ -2,10 +2,12 @@ package com.bookmind.ui.reader
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
@@ -39,6 +43,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,11 +67,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
@@ -78,6 +86,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import com.bookmind.core.model.HighlightColor
 import com.bookmind.core.model.UserQuote
 import com.bookmind.settings.AppSettings
@@ -87,7 +96,7 @@ import com.bookmind.ui.assistant.AssistantViewModel
 import com.bookmind.ui.components.ResizableSplitPane
 import com.bookmind.ui.settings.SettingsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ReaderScreen(
     bookId: String,
@@ -108,6 +117,12 @@ fun ReaderScreen(
     // Hoisted so the chapter scroll position can drive the chrome auto-hide.
     val scrollState = rememberScrollState()
     val tts = rememberTtsController()
+    val coroutineScope = rememberCoroutineScope()
+
+    // Hoisted pager: lets the bottom arrows animate page turns, and swipe works.
+    var pageCount by remember { mutableIntStateOf(1) }
+    val pagerState = rememberPagerState(pageCount = { pageCount })
+    val isPaged = settings.scrollDirection == ScrollDirection.HORIZONTAL
     // The highlighted passage, reported by whichever reader mode is active. It
     // powers "save quote" / "ask AI".
     var selectedText by remember { mutableStateOf("") }
@@ -152,6 +167,30 @@ fun ReaderScreen(
         derivedStateOf { !immersiveScroll || scrollState.value < 60 }
     }
 
+    // Start each new chapter from its first page.
+    LaunchedEffect(uiState.currentChapterIndex, isPaged) {
+        if (isPaged && pagerState.pageCount > 0) pagerState.scrollToPage(0)
+    }
+
+    // Blur the page behind modal panels (settings / quotes) for focus.
+    val contentBlur by animateDpAsState(
+        targetValue = if (settingsOpen || quotesOpen) 14.dp else 0.dp,
+        label = "readerContentBlur"
+    )
+
+    // Arrows: in paged mode they flip pages (animated), spilling into the
+    // previous/next chapter at the edges; otherwise they move between chapters.
+    val goPrevious: () -> Unit = {
+        if (isPaged && pagerState.currentPage > 0) {
+            coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+        } else viewModel.previousChapter()
+    }
+    val goNext: () -> Unit = {
+        if (isPaged && pagerState.currentPage < pageCount - 1) {
+            coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+        } else viewModel.nextChapter()
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -191,6 +230,9 @@ fun ReaderScreen(
                         }
                         IconButton(onClick = { chatOpen = !chatOpen }) {
                             Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Assistant")
+                        }
+                        IconButton(onClick = { settingsOpen = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Настройки чтения")
                         }
                         Box {
                             IconButton(onClick = { menuOpen = true }) {
@@ -232,21 +274,25 @@ fun ReaderScreen(
                     modifier = Modifier.fillMaxWidth().padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = viewModel::previousChapter) {
+                    IconButton(onClick = goPrevious) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous")
                     }
                     Text(
-                        "${uiState.currentChapterIndex + 1} / $chapterCount",
+                        if (isPaged && pageCount > 1) {
+                            "${uiState.currentChapterIndex + 1}/$chapterCount · стр. ${pagerState.currentPage + 1}/$pageCount"
+                        } else {
+                            "${uiState.currentChapterIndex + 1} / $chapterCount"
+                        },
                         modifier = Modifier.align(Alignment.CenterVertically)
                     )
-                    IconButton(onClick = viewModel::nextChapter) {
+                    IconButton(onClick = goNext) {
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next")
                     }
                 }
             }
         }
     ) { padding ->
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(padding)) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(padding).blur(contentBlur)) {
             val sideBySide = maxWidth >= 720.dp
 
             val body: @Composable () -> Unit = {
@@ -256,6 +302,8 @@ fun ReaderScreen(
                     selectedText = selectedText,
                     settings = settings,
                     scrollState = scrollState,
+                    pagerState = pagerState,
+                    onPageCountChange = { pageCount = it },
                     onSelectionChange = { selectedText = it },
                     onSaveQuote = { color -> viewModel.saveQuote(selectedText, color) },
                     onAskAi = {
@@ -357,6 +405,7 @@ fun ReaderScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReaderBody(
     isLoading: Boolean,
@@ -364,6 +413,8 @@ private fun ReaderBody(
     selectedText: String,
     settings: AppSettings,
     scrollState: androidx.compose.foundation.ScrollState,
+    pagerState: PagerState,
+    onPageCountChange: (Int) -> Unit,
     onSelectionChange: (String) -> Unit,
     onSaveQuote: (HighlightColor) -> Unit,
     onAskAi: () -> Unit,
@@ -405,6 +456,8 @@ private fun ReaderBody(
                     text = chapterText,
                     settings = settings,
                     contentColor = fgColor,
+                    pagerState = pagerState,
+                    onPageCountChange = onPageCountChange,
                     onSelectionChange = onSelectionChange
                 )
             }
