@@ -30,7 +30,9 @@ data class Book(
     val fileUri: String,
     val addedAt: Long = System.currentTimeMillis(),
     /** Null = not filed under any named shelf. */
-    val shelfId: String? = null
+    val shelfId: String? = null,
+    /** User-picked cover image (content:// URI); null = generated gradient cover. */
+    val coverUri: String? = null
 )
 
 /** A user-created named shelf books can be grouped under. */

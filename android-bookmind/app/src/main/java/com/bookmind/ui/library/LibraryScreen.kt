@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.HideImage
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
@@ -85,9 +87,27 @@ fun LibraryScreen(
     var contextBook by remember { mutableStateOf<Book?>(null) }
     var showCreateShelf by remember { mutableStateOf(false) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let(viewModel::importAndIngest) }
+
+    // Cover image picker; persists read access so Coil can load it across restarts.
+    val coverPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val book = contextBook
+        if (uri != null && book != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            viewModel.updateCover(book.id, uri.toString())
+        }
+        contextBook = null
+    }
 
     Scaffold(
         topBar = {
@@ -175,6 +195,11 @@ fun LibraryScreen(
             onDismiss = { contextBook = null },
             onMoveToShelf = { shelfId ->
                 viewModel.moveBookToShelf(book.id, shelfId)
+                contextBook = null
+            },
+            onChangeCover = { coverPicker.launch(arrayOf("image/*")) },
+            onRemoveCover = {
+                viewModel.updateCover(book.id, null)
                 contextBook = null
             },
             onDelete = {
@@ -405,6 +430,8 @@ private fun BookContextSheet(
     shelves: List<Shelf>,
     onDismiss: () -> Unit,
     onMoveToShelf: (String?) -> Unit,
+    onChangeCover: () -> Unit,
+    onRemoveCover: () -> Unit,
     onDelete: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -426,6 +453,30 @@ private fun BookContextSheet(
                 ) { onMoveToShelf(shelf.id) }
             }
             Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onChangeCover)
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null)
+                Spacer(Modifier.size(8.dp))
+                Text("Изменить обложку")
+            }
+            if (book.coverUri != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onRemoveCover)
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.HideImage, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Убрать обложку")
+                }
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

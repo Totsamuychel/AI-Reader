@@ -56,6 +56,28 @@ fun BookCoverCard(
             .background(Brush.linearGradient(listOf(top, bottom)))
             .combinedClickable(onClick = onTap, onLongClick = onLongPress)
     ) {
+        // User-picked cover image, if any, fills the card; the gradient below only
+        // shows through while it loads or when no cover is set.
+        if (book.coverUri != null) {
+            coil.compose.AsyncImage(
+                model = book.coverUri,
+                contentDescription = book.title,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            if (progress > 0f) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .align(Alignment.BottomCenter),
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.3f)
+                )
+            }
+            return@Box
+        }
         // Spine
         Box(
             modifier = Modifier

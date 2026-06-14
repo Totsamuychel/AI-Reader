@@ -15,7 +15,9 @@ data class BookEntity(
     val format: String,
     val fileUri: String,
     val addedAt: Long,
-    val shelfId: String? = null
+    val shelfId: String? = null,
+    /** User-picked cover image (content:// URI); null = generated gradient cover. */
+    val coverUri: String? = null
 )
 
 @Entity(tableName = "shelves")

@@ -29,7 +29,7 @@ import org.json.JSONArray
 
 // = iOS `Records` toDomain()/init(domain:) conversions.
 
-fun Book.toEntity() = BookEntity(id.raw, title, author, format.raw, fileUri, addedAt, shelfId)
+fun Book.toEntity() = BookEntity(id.raw, title, author, format.raw, fileUri, addedAt, shelfId, coverUri)
 fun BookEntity.toDomain() = Book(
     id = BookID(id),
     title = title,
@@ -37,7 +37,8 @@ fun BookEntity.toDomain() = Book(
     format = BookFormat.fromRaw(format),
     fileUri = fileUri,
     addedAt = addedAt,
-    shelfId = shelfId
+    shelfId = shelfId,
+    coverUri = coverUri
 )
 
 fun Shelf.toEntity() = ShelfEntity(id, name, colorRgb, sortOrder, createdAt)

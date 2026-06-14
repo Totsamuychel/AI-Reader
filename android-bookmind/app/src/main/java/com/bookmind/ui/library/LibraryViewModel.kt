@@ -138,6 +138,14 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /** Sets (or clears, when null) a user-picked cover image for a book. */
+    fun updateCover(bookId: BookID, coverUri: String?) {
+        viewModelScope.launch {
+            bookStore.setCover(bookId, coverUri)
+            refresh()
+        }
+    }
+
     /** Import → parse chapters → ingest into spoiler-safe memory. */
     fun importAndIngest(uri: Uri) {
         viewModelScope.launch {

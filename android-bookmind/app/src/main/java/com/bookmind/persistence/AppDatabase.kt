@@ -2,6 +2,8 @@ package com.bookmind.persistence
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.bookmind.persistence.dao.BookDao
 import com.bookmind.persistence.dao.CharacterDao
 import com.bookmind.persistence.dao.ChunkDao
@@ -45,7 +47,7 @@ import com.bookmind.persistence.entity.UserQuoteEntity
         ShelfEntity::class,
         ReadingSessionEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -59,4 +61,13 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userQuoteDao(): UserQuoteDao
     abstract fun shelfDao(): ShelfDao
     abstract fun readingSessionDao(): ReadingSessionDao
+
+    companion object {
+        /** v5: user-supplied book cover image URI. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE books ADD COLUMN coverUri TEXT")
+            }
+        }
+    }
 }
