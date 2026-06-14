@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -59,7 +60,8 @@ fun AssistantPanel(
     onClose: (() -> Unit)? = null,
     selectedText: String? = null,
     onQuickAction: ((String) -> Unit)? = null,
-    onClearSelection: (() -> Unit)? = null
+    onClearSelection: (() -> Unit)? = null,
+    onClearHistory: (() -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
 
@@ -69,7 +71,7 @@ fun AssistantPanel(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        if (onClose != null) {
+        if (onClose != null || onClearHistory != null) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -79,8 +81,15 @@ fun AssistantPanel(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Default.Close, contentDescription = "Close assistant")
+                if (onClearHistory != null && uiState.messages.isNotEmpty()) {
+                    IconButton(onClick = onClearHistory) {
+                        Icon(Icons.Default.DeleteSweep, contentDescription = "Очистить историю")
+                    }
+                }
+                if (onClose != null) {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "Close assistant")
+                    }
                 }
             }
         }

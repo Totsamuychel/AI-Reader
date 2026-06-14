@@ -47,6 +47,7 @@ fun AssistantScreen(
             onSend = viewModel::sendMessage,
             onModeChange = viewModel::setMode,
             onWebToggle = viewModel::setWebEnabled,
+            onClearHistory = viewModel::clearHistory,
             modifier = Modifier.fillMaxSize().padding(padding)
         )
     }

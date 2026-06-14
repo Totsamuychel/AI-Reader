@@ -272,7 +272,8 @@ fun ReaderScreen(
                     onWebToggle = assistantViewModel::setWebEnabled,
                     onClose = { chatOpen = false },
                     selectedText = selectedText.ifBlank { null },
-                    onQuickAction = assistantViewModel::quickAsk
+                    onQuickAction = assistantViewModel::quickAsk,
+                    onClearHistory = assistantViewModel::clearHistory
                 )
             }
 

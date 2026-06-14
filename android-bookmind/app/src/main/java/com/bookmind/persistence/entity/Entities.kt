@@ -161,6 +161,20 @@ data class UserQuoteEntity(
     val createdAt: Long
 )
 
+@Entity(
+    tableName = "chat_messages",
+    indices = [Index(value = ["bookId", "timestamp"])]
+)
+data class ChatMessageEntity(
+    @PrimaryKey val id: String,
+    val bookId: String,
+    /** "user" or "assistant". */
+    val role: String,
+    val content: String,
+    val spoilerFlagged: Boolean = false,
+    val timestamp: Long
+)
+
 @Entity(tableName = "relations")
 data class RelationEntity(
     @PrimaryKey val id: String,

@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.bookmind.persistence.entity.BookEntity
 import com.bookmind.persistence.entity.ChapterEntity
+import com.bookmind.persistence.entity.ChatMessageEntity
 import com.bookmind.persistence.entity.CharacterEntity
 import com.bookmind.persistence.entity.ChunkEntity
 import com.bookmind.persistence.entity.EventEntity
@@ -77,6 +78,24 @@ interface ReadingSessionDao {
     suspend fun forBook(bookId: String): List<ReadingSessionEntity>
 
     @Query("DELETE FROM reading_sessions WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: String)
+}
+
+@Dao
+interface ChatMessageDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(message: ChatMessageEntity)
+
+    @Query("SELECT * FROM chat_messages WHERE bookId = :bookId ORDER BY timestamp ASC")
+    fun observeForBook(bookId: String): Flow<List<ChatMessageEntity>>
+
+    @Query("SELECT * FROM chat_messages WHERE bookId = :bookId ORDER BY timestamp ASC")
+    suspend fun forBook(bookId: String): List<ChatMessageEntity>
+
+    @Query("SELECT DISTINCT bookId FROM chat_messages")
+    suspend fun bookIdsWithChats(): List<String>
+
+    @Query("DELETE FROM chat_messages WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
 }
 

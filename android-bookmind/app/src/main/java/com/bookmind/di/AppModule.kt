@@ -20,6 +20,7 @@ import com.bookmind.persistence.RoomBookStore
 import com.bookmind.persistence.RoomProgressStore
 import com.bookmind.persistence.RoomQuoteStore
 import com.bookmind.persistence.dao.BookDao
+import com.bookmind.persistence.dao.ChatMessageDao
 import com.bookmind.persistence.dao.CharacterDao
 import com.bookmind.persistence.dao.ChunkDao
 import com.bookmind.persistence.dao.EventDao
@@ -87,7 +88,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "bookmind.db")
-            .addMigrations(AppDatabase.MIGRATION_4_5)
+            .addMigrations(AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -101,6 +102,7 @@ object DatabaseModule {
     @Provides fun userQuoteDao(db: AppDatabase): UserQuoteDao = db.userQuoteDao()
     @Provides fun shelfDao(db: AppDatabase): ShelfDao = db.shelfDao()
     @Provides fun readingSessionDao(db: AppDatabase): ReadingSessionDao = db.readingSessionDao()
+    @Provides fun chatMessageDao(db: AppDatabase): ChatMessageDao = db.chatMessageDao()
 }
 
 /** Chooses the LLM bridge: real MediaPipe when the model is downloaded, else a stub. */

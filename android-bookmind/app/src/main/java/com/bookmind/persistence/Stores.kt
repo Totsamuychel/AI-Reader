@@ -7,6 +7,7 @@ import com.bookmind.core.model.ReadingPosition
 import com.bookmind.core.model.Shelf
 import com.bookmind.core.model.UserQuote
 import com.bookmind.persistence.dao.BookDao
+import com.bookmind.persistence.dao.ChatMessageDao
 import com.bookmind.persistence.dao.CharacterDao
 import com.bookmind.persistence.dao.ChunkDao
 import com.bookmind.persistence.dao.EventDao
@@ -94,7 +95,8 @@ class LibraryRepository @Inject constructor(
     private val characterDao: CharacterDao,
     private val recapDao: RecapDao,
     private val eventDao: EventDao,
-    private val sessionDao: ReadingSessionDao
+    private val sessionDao: ReadingSessionDao,
+    private val chatDao: ChatMessageDao
 ) {
     fun observeShelves(): Flow<List<Shelf>> =
         shelfDao.observeAll().map { list -> list.map { it.toDomain() } }
@@ -121,6 +123,7 @@ class LibraryRepository @Inject constructor(
         recapDao.deleteForBook(id)
         eventDao.deleteForBook(id)
         sessionDao.deleteForBook(id)
+        chatDao.deleteForBook(id)
         bookDao.deleteBook(id)
     }
 }
@@ -146,4 +149,30 @@ class ReadingSessionStore @Inject constructor(
     suspend fun forBook(bookID: BookID) = sessionDao.forBook(bookID.raw)
 
     companion object { private const val MIN_SESSION_MS = 3_000L }
+}
+
+/** Per-book AI chat history (= plan's ChatHistoryDao wrapper). */
+class ChatHistoryStore @Inject constructor(
+    private val chatDao: ChatMessageDao
+) {
+    fun observe(bookID: BookID): Flow<List<com.bookmind.persistence.entity.ChatMessageEntity>> =
+        chatDao.observeForBook(bookID.raw)
+
+    suspend fun forBook(bookID: BookID) = chatDao.forBook(bookID.raw)
+
+    suspend fun add(bookID: BookID, role: String, content: String, spoilerFlagged: Boolean = false) {
+        chatDao.insert(
+            com.bookmind.persistence.entity.ChatMessageEntity(
+                id = java.util.UUID.randomUUID().toString(),
+                bookId = bookID.raw,
+                role = role,
+                content = content,
+                spoilerFlagged = spoilerFlagged,
+                timestamp = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun clear(bookID: BookID) = chatDao.deleteForBook(bookID.raw)
+    suspend fun bookIdsWithChats(): List<String> = chatDao.bookIdsWithChats()
 }

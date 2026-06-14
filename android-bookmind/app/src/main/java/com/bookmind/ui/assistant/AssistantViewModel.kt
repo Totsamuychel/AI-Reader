@@ -6,11 +6,15 @@ import com.bookmind.core.model.BookID
 import com.bookmind.llm.AnswerEvent
 import com.bookmind.llm.AnswerService
 import com.bookmind.persistence.BookStoring
+import com.bookmind.persistence.ChatHistoryStore
 import com.bookmind.safety.AnswerMode
+import com.bookmind.settings.SettingsStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,13 +35,16 @@ data class AssistantUiState(
 @HiltViewModel
 class AssistantViewModel @Inject constructor(
     private val answerService: AnswerService,
-    private val bookStore: BookStoring
+    private val bookStore: BookStoring,
+    private val chatHistory: ChatHistoryStore,
+    private val settingsStore: SettingsStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AssistantUiState())
     val uiState: StateFlow<AssistantUiState> = _uiState.asStateFlow()
 
     private var bookId: String = ""
+    private var historyJob: Job? = null
 
     fun configure(bookId: String, currentChapterIndex: Int) {
         this.bookId = bookId
@@ -46,6 +53,40 @@ class AssistantViewModel @Inject constructor(
             val title = bookStore.book(BookID(bookId))?.title ?: "this book"
             _uiState.update { it.copy(bookTitle = title) }
         }
+        loadHistory(bookId)
+    }
+
+    /** Seeds the conversation from the saved per-book history (once, if empty). */
+    private fun loadHistory(bookId: String) {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
+            if (!settingsStore.settings.first().keepChatHistory) return@launch
+            val history = chatHistory.forBook(BookID(bookId)).map {
+                ChatMessage(it.content, fromUser = it.role == ROLE_USER, spoilerFlagged = it.spoilerFlagged)
+            }
+            _uiState.update { state ->
+                if (state.messages.isEmpty()) state.copy(messages = history) else state
+            }
+        }
+    }
+
+    /** Persists one message if the user keeps chat history. */
+    private fun persist(role: String, content: String, spoilerFlagged: Boolean = false) {
+        val id = bookId
+        if (id.isEmpty()) return
+        viewModelScope.launch {
+            if (settingsStore.settings.first().keepChatHistory) {
+                chatHistory.add(BookID(id), role, content, spoilerFlagged)
+            }
+        }
+    }
+
+    /** Clears the on-screen and persisted history for the current book. */
+    fun clearHistory() {
+        val id = bookId
+        _uiState.update { it.copy(messages = emptyList(), streamingText = "") }
+        if (id.isEmpty()) return
+        viewModelScope.launch { chatHistory.clear(BookID(id)) }
     }
 
     fun onInputChange(value: String) = _uiState.update { it.copy(inputText = value) }
@@ -90,6 +131,7 @@ class AssistantViewModel @Inject constructor(
                 streamingText = ""
             )
         }
+        persist(ROLE_USER, question)
 
         viewModelScope.launch {
             answerService.mode = state.mode
@@ -100,16 +142,19 @@ class AssistantViewModel @Inject constructor(
                         is AnswerEvent.ContextRetrieved -> Unit
                         is AnswerEvent.Token ->
                             _uiState.update { it.copy(streamingText = it.streamingText + event.token) }
-                        is AnswerEvent.Complete -> _uiState.update {
-                            it.copy(
-                                messages = it.messages + ChatMessage(
-                                    event.fullText,
-                                    fromUser = false,
-                                    spoilerFlagged = event.spoilerFlagged
-                                ),
-                                isGenerating = false,
-                                streamingText = ""
-                            )
+                        is AnswerEvent.Complete -> {
+                            _uiState.update {
+                                it.copy(
+                                    messages = it.messages + ChatMessage(
+                                        event.fullText,
+                                        fromUser = false,
+                                        spoilerFlagged = event.spoilerFlagged
+                                    ),
+                                    isGenerating = false,
+                                    streamingText = ""
+                                )
+                            }
+                            persist(ROLE_ASSISTANT, event.fullText, event.spoilerFlagged)
                         }
                         is AnswerEvent.Failed -> _uiState.update {
                             it.copy(
@@ -121,5 +166,10 @@ class AssistantViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    private companion object {
+        const val ROLE_USER = "user"
+        const val ROLE_ASSISTANT = "assistant"
     }
 }
