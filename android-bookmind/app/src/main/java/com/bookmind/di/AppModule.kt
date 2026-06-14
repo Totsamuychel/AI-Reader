@@ -2,6 +2,10 @@ package com.bookmind.di
 
 import android.content.Context
 import androidx.room.Room
+import com.bookmind.account.AccountRepository
+import com.bookmind.account.LocalAccountRepository
+import com.bookmind.account.LocalSubscriptionRepository
+import com.bookmind.account.SubscriptionRepository
 import com.bookmind.llm.AnswerProviding
 import com.bookmind.llm.AnswerService
 import com.bookmind.llm.EchoMediaPipeBridge
@@ -144,4 +148,7 @@ abstract class BindingsModule {
 
     @Binds abstract fun llmClient(impl: GemmaClient): LLMClient
     @Binds abstract fun answerProviding(impl: AnswerService): AnswerProviding
+
+    @Binds abstract fun accountRepository(impl: LocalAccountRepository): AccountRepository
+    @Binds abstract fun subscriptionRepository(impl: LocalSubscriptionRepository): SubscriptionRepository
 }

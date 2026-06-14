@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.bookmind.ui.assistant.AssistantScreen
+import com.bookmind.ui.auth.AuthScreen
 import com.bookmind.ui.library.LibraryScreen
 import com.bookmind.ui.reader.ReaderScreen
 import com.bookmind.ui.screens.BookStatsScreen
@@ -23,6 +24,7 @@ object Routes {
     const val READER = "reader/{bookId}"
     const val ASSISTANT = "assistant/{bookId}/{chapterIndex}"
     const val SETTINGS = "settings"
+    const val ACCOUNT = "account"
     const val STATS = "stats"
     const val STATS_BOOK = "stats/{bookId}"
 
@@ -80,7 +82,13 @@ fun BookMindNavHost(settingsViewModel: SettingsViewModel) {
             )
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenAccount = { navController.navigate(Routes.ACCOUNT) }
+            )
+        }
+        composable(Routes.ACCOUNT) {
+            AuthScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.STATS) {
             StatsScreen(onBack = { navController.popBackStack() })
