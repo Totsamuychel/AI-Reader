@@ -8,13 +8,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,8 +23,6 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bookmind.settings.AppSettings
@@ -78,15 +74,12 @@ fun PagedReader(
         }
 
         val quoteColor = androidx.compose.material3.MaterialTheme.colorScheme.primary
-        val transformation = remember(quoteColor) { ReaderVisualTransformation(quoteColor) }
 
         val pageContent: @Composable (Int) -> Unit = { index ->
             PageSurface(
                 pageText = pages.getOrElse(index) { "" },
                 textStyle = textStyle,
-                isCurrent = index == pagerState.currentPage,
-                onSelectionChange = onSelectionChange,
-                transformation = transformation,
+                quoteColor = quoteColor,
                 modifier = Modifier
                     .pageTransform(settings.pageAnimation, pagerState, index)
                     .curlShading(settings.pageAnimation, pagerState, index)
@@ -105,26 +98,21 @@ fun PagedReader(
 private fun PageSurface(
     pageText: String,
     textStyle: TextStyle,
-    isCurrent: Boolean,
-    onSelectionChange: (String) -> Unit,
-    transformation: VisualTransformation,
+    quoteColor: Color,
     modifier: Modifier = Modifier
 ) {
-    var fieldValue by remember(pageText) { mutableStateOf(TextFieldValue(pageText)) }
+    // Plain (selectable) Text rather than a text field, so a horizontal swipe is
+    // delivered to the HorizontalPager instead of being captured for selection;
+    // long-press still selects/copies inside the SelectionContainer.
+    val annotated = remember(pageText, quoteColor) { buildReaderAnnotatedString(pageText, quoteColor) }
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
-        BasicTextField(
-            value = fieldValue,
-            onValueChange = { fieldValue = it },
-            readOnly = true,
-            visualTransformation = transformation,
-            textStyle = textStyle,
-            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
-        )
-    }
-    if (isCurrent) {
-        val sel = fieldValue.selection
-        val selected = if (sel.collapsed) "" else fieldValue.text.substring(sel.min, sel.max)
-        LaunchedEffect(selected) { onSelectionChange(selected) }
+        SelectionContainer {
+            Text(
+                text = annotated,
+                style = textStyle,
+                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
+            )
+        }
     }
 }
 

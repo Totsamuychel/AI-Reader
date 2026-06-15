@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.OffsetMapping
@@ -12,66 +13,94 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.em
 
+private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '…', '»', '”', '"', ')')
+
+/** True when [line] looks like the end of a paragraph (ends a sentence). */
+private fun endsSentence(line: String): Boolean {
+    val c = line.trimEnd().lastOrNull() ?: return false
+    return c in SENTENCE_ENDERS
+}
+
 /**
- * Cleans raw chapter text extracted by the parsers into well-formed reading prose,
- * detecting paragraph structure across the two conventions books use:
+ * Cleans raw chapter text from the parsers into well-formed reading prose,
+ * reconstructing paragraphs across the conventions books use:
  *
- *  - **Blank-line separated** (most EPUB/FB2/PDF, and TXT with empty lines): blank
- *    lines delimit paragraphs and any single newline inside a paragraph is a
- *    hard-wrap that we unwrap into a space.
- *  - **One-line-per-paragraph** (common plain TXT with no blank lines): every
- *    non-empty line is its own paragraph.
+ *  - **Blank-line separated** (most EPUB/FB2): blank lines delimit paragraphs and
+ *    single newlines inside are hard-wraps we unwrap into spaces.
+ *  - **One-line-per-paragraph** TXT (no blank lines, most lines end a sentence):
+ *    every line is its own paragraph.
+ *  - **Hard-wrapped** text (PDF page extraction: many short lines, few end a
+ *    sentence): lines are re-flowed into paragraphs, breaking only at a short
+ *    sentence-ending line — so a PDF page no longer turns every wrapped line into
+ *    its own indented paragraph.
  *
- * Paragraphs are emitted separated by a single `\n` so the reader can render them
- * with a book-style first-line indent (see [ReaderVisualTransformation]); [paginate]
- * splits on the same delimiter.
+ * Paragraphs are emitted separated by a single `\n` (see [buildReaderAnnotatedString]
+ * for the first-line indent); [paginate] splits on the same delimiter.
  */
 fun normalizeChapterText(raw: String): String {
     if (raw.isBlank()) return ""
-    val text = raw.replace("\r\n", "\n").replace(' ', ' ') // nbsp → space
+    val text = raw.replace("\r\n", "\n").replace(' ', ' ') // nbsp → space
     val hasBlankLineSeparators = Regex("\\n[ \\t]*\\n").containsMatchIn(text)
 
-    val paragraphs = if (hasBlankLineSeparators) {
+    val paragraphs: List<String> = if (hasBlankLineSeparators) {
         text.split(Regex("\\n[ \\t]*\\n"))
             .map { it.replace(Regex("[ \\t]*\\n[ \\t]*"), " ") } // unwrap hard-wraps
     } else {
-        text.split('\n') // each line is a paragraph
+        val lines = text.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+        when {
+            lines.size <= 1 -> lines
+            // Mostly sentence-ending lines → genuine one-paragraph-per-line text.
+            lines.count { endsSentence(it) }.toFloat() / lines.size >= 0.6f -> lines
+            // Otherwise the text is hard-wrapped (e.g. PDF): re-flow into paragraphs.
+            else -> reflowHardWrapped(lines)
+        }
     }
 
     return paragraphs
         .asSequence()
-        .map { it.replace(Regex("[ \\t]{2,}"), " ").trim() } // collapse repeated spaces
+        .map { it.replace(Regex("[ \\t]{2,}"), " ").trim() }
         .filter { it.isNotBlank() }
         .joinToString("\n")
 }
 
 /**
- * Renders the read-only reader text with book-like typography without changing
- * character offsets (so passage selection keeps working):
- *
- *  - every paragraph gets a first-line indent (the classic "red line")
- *  - lines beginning with `>` render italic and tinted (block quotes)
- *  - inline `` `code` `` renders in a monospace family
- *
- * Because the visible text is identical to the source, [OffsetMapping.Identity] is
- * correct and selections map 1:1.
+ * Re-flows hard-wrapped lines into paragraphs: consecutive lines are joined with a
+ * space, and a paragraph ends at a *short* sentence-ending line (the typical last
+ * line of a paragraph), so full-width wrapped lines stay in one paragraph.
  */
-class ReaderVisualTransformation(
-    private val quoteColor: Color
-) : VisualTransformation {
+private fun reflowHardWrapped(lines: List<String>): List<String> {
+    val maxLen = lines.maxOf { it.length }.coerceAtLeast(1)
+    val shortThreshold = maxLen * 0.75
+    val paragraphs = mutableListOf<String>()
+    val current = StringBuilder()
+    for (line in lines) {
+        if (current.isNotEmpty()) current.append(' ')
+        current.append(line)
+        if (endsSentence(line) && line.length < shortThreshold) {
+            paragraphs.add(current.toString())
+            current.clear()
+        }
+    }
+    if (current.isNotEmpty()) paragraphs.add(current.toString())
+    return paragraphs
+}
 
-    override fun filter(text: AnnotatedString): TransformedText {
-        val source = text.text
-        if (source.isEmpty()) return TransformedText(text, OffsetMapping.Identity)
+// Relative to font size, so the indent scales with the reader's text size.
+private val FIRST_LINE_INDENT = 1.6.em
+private val INLINE_CODE = Regex("`[^`\\n]+`")
 
-        val builder = AnnotatedString.Builder(source)
+/**
+ * Builds the styled reader text: a book-style first-line indent per paragraph,
+ * italic+tinted block quotes (`>` lines) and monospace inline `` `code` ``. The
+ * characters are unchanged from [source], so text-field offsets map 1:1.
+ */
+fun buildReaderAnnotatedString(source: String, quoteColor: Color): AnnotatedString {
+    if (source.isEmpty()) return AnnotatedString("")
+    return buildAnnotatedString {
+        append(source)
 
-        // Book-style first-line indent applied to every paragraph (split on '\n').
-        builder.addStyle(
-            ParagraphStyle(textIndent = TextIndent(firstLine = FIRST_LINE_INDENT)),
-            0,
-            source.length
-        )
+        // First-line indent for every paragraph (split on '\n').
+        addStyle(ParagraphStyle(textIndent = TextIndent(firstLine = FIRST_LINE_INDENT)), 0, source.length)
 
         // Quote lines: leading whitespace then '>'.
         var lineStart = 0
@@ -80,11 +109,7 @@ class ReaderVisualTransformation(
             val lineEnd = if (newline == -1) source.length else newline
             val firstNonSpace = (lineStart until lineEnd).firstOrNull { !source[it].isWhitespace() }
             if (firstNonSpace != null && source[firstNonSpace] == '>') {
-                builder.addStyle(
-                    SpanStyle(fontStyle = FontStyle.Italic, color = quoteColor),
-                    lineStart,
-                    lineEnd
-                )
+                addStyle(SpanStyle(fontStyle = FontStyle.Italic, color = quoteColor), lineStart, lineEnd)
             }
             if (newline == -1) break
             lineStart = newline + 1
@@ -92,19 +117,18 @@ class ReaderVisualTransformation(
 
         // Inline code spans.
         for (match in INLINE_CODE.findAll(source)) {
-            builder.addStyle(
-                SpanStyle(fontFamily = FontFamily.Monospace),
-                match.range.first,
-                match.range.last + 1
-            )
+            addStyle(SpanStyle(fontFamily = FontFamily.Monospace), match.range.first, match.range.last + 1)
         }
-
-        return TransformedText(builder.toAnnotatedString(), OffsetMapping.Identity)
     }
+}
 
-    private companion object {
-        val INLINE_CODE = Regex("`[^`\\n]+`")
-        // Relative to font size, so the indent scales with the reader's text size.
-        val FIRST_LINE_INDENT = 1.6.em
-    }
+/**
+ * Visual transformation used by the selectable continuous reader (a read-only text
+ * field). Reuses [buildReaderAnnotatedString] with [OffsetMapping.Identity].
+ */
+class ReaderVisualTransformation(
+    private val quoteColor: Color
+) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText =
+        TransformedText(buildReaderAnnotatedString(text.text, quoteColor), OffsetMapping.Identity)
 }
